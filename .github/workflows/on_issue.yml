@@ -5,15 +5,27 @@ on:
     types: [opened]
 
 jobs:
-  run-code-agent:
+  code-agent:
     runs-on: ubuntu-latest
+
     steps:
-      - name: Run Code Agent (dry-run)
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Install dependencies
         run: |
-          docker run --rm \
-            -e ISSUE_TITLE="${{ github.event.issue.title }}" \
-            -e ISSUE_BODY="${{ github.event.issue.body }}" \
-            -e ISSUE_NUMBER="${{ github.event.issue.number }}" \
-            -e REPO_FULL_NAME="${{ github.repository }}" \
-            your-dockerhub-username/code-agent:latest \
-            --mode dry-run
+          python -m pip install --upgrade pip
+          pip install PyGithub
+
+      - name: Run Code Agent
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ISSUE_NUMBER: ${{ github.event.issue.number }}
+        run: |
+          python agent/code_agent.py
