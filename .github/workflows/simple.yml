@@ -1,12 +1,16 @@
 name: Simple
 
 on:
-  push:
-    branches: [main]
+  issues:
+    types: [opened]
 
 jobs:
-  build:
+  debug-issue:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
-      - run: echo "Hello, GitHub Actions!"
+      - name: Print issue info
+        run: |
+          echo "Issue title: ${{ github.event.issue.title }}"
+          echo "Issue body:"
+          echo "${{ github.event.issue.body }}"
+
