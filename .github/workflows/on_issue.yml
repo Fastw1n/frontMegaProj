@@ -31,15 +31,25 @@ jobs:
       - name: Install python deps
         run: |
           python -m pip install --upgrade pip
-          pip install PyGithub openai
+          if [ -f requirements.txt ]; then
+            pip install -r requirements.txt
+          else
+            pip install PyGithub openai
+          fi
 
       - name: Run Code Agent
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
+
+          # BYOK
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          # Optional: if not set, code must fallback to a default model
           MODEL: ${{ vars.MODEL }}
+          # Optional but helpful for reproducibility
+          OPENROUTER_BASE_URL: https://openrouter.ai/api/v1
+
           BASE_BRANCH: main
         run: |
           python -m agent.code_agent
