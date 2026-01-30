@@ -31,11 +31,7 @@ jobs:
       - name: Install python deps
         run: |
           python -m pip install --upgrade pip
-          if [ -f requirements.txt ]; then
-            pip install -r requirements.txt
-          else
-            pip install PyGithub agno openai
-          fi
+          pip install PyGithub openai
 
       - name: Run Code Agent
         env:
