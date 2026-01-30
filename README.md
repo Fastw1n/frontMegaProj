@@ -1,17 +1,26 @@
 ## Bring Your Own Key (BYOK)
 
-The system supports Bring Your Own LLM Key.
+The system supports **Bring Your Own LLM Key (BYOK)**.
 
-To run the Coding Agent, configure the following GitHub Actions secrets:
+This allows evaluators to plug in their own API key and test the SDLC pipeline
+with different LLM providers and model capacities **without changing the codebase**.
 
-- OPENROUTER_API_KEY – your OpenRouter API key
+### Required GitHub Actions secrets
+- `OPENROUTER_API_KEY` — your OpenRouter API key
 
-Optionally configure variables:
-- MODEL – model id (e.g. openai/gpt-4o-mini)
+### Optional GitHub Actions variables
+- `MODEL` — model id (e.g. `openai/gpt-4o-mini`)
 
-This allows evaluators to test the pipeline with different LLM providers
-and model capacities without changing the codebase.
+If `MODEL` is not set, the system falls back to a default stable model.
+
+### How to run
+1. Configure the required secret (and optional variables).
+2. Create a GitHub Issue in the repository.
+3. The pipeline will automatically execute:
+   **Issue → Code Agent → Pull Request → CI → Reviewer Agent**
 
 ### Example Issue
-Title: Change homepage heading
-Body: Change the main heading text to "Front Mega — курс по фронтенду". Only change text.
+**Title:** Change homepage heading  
+**Body:**  
+Change the main heading text to **"Front Mega — курс по фронтенду"**.  
+Only change text, do not modify styles or layout.
