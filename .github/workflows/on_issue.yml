@@ -3,6 +3,7 @@ name: On Issue Opened
 permissions:
   contents: write
   pull-requests: write
+  issues: write
 
 on:
   issues:
