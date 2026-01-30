@@ -4,7 +4,6 @@ permissions:
   contents: write
   pull-requests: write
 
-
 on:
   issues:
     types: [opened]
@@ -12,25 +11,26 @@ on:
 jobs:
   code-agent:
     runs-on: ubuntu-latest
-
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # важно для git веток/коммитов
 
-      - name: Setup Python
-        uses: actions/setup-python@v5
+      - uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install python deps
         run: |
           python -m pip install --upgrade pip
-          pip install PyGithub
+          pip install -r requirements.txt
 
       - name: Run Code Agent
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GITHUB_REPOSITORY: ${{ github.repository }}
           ISSUE_NUMBER: ${{ github.event.issue.number }}
+          OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
+          MODEL: ${{ vars.MODEL }}   # опционально, можно убрать
         run: |
           python agent/code_agent.py
