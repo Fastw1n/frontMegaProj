@@ -1,5 +1,10 @@
 name: On Issue Opened
 
+permissions:
+  contents: write
+  pull-requests: write
+
+
 on:
   issues:
     types: [opened]
