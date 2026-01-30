@@ -1,7 +1,8 @@
-# agent/code_agent.py
 import os
 import subprocess
-from github import Github, Auth
+from typing import Optional
+
+from github import Auth, Github
 
 from agent.agno_agent import run_coding_agent
 
@@ -13,13 +14,24 @@ def sh(cmd: str) -> str:
     return out
 
 
-def main():
+def try_sh(cmd: str) -> str:
+    try:
+        return sh(cmd)
+    except subprocess.CalledProcessError as e:
+        print(e.output)
+        raise
+
+
+def main() -> None:
     token = os.getenv("GITHUB_TOKEN")
     repo_name = os.getenv("GITHUB_REPOSITORY")
-    issue_number = int(os.getenv("ISSUE_NUMBER", "0"))
+    issue_number_str = os.getenv("ISSUE_NUMBER")
+    base_branch = (os.getenv("BASE_BRANCH") or "main").strip()
 
-    if not token or not repo_name or not issue_number:
+    if not token or not repo_name or not issue_number_str:
         raise ValueError("Missing env vars: GITHUB_TOKEN, GITHUB_REPOSITORY, ISSUE_NUMBER")
+
+    issue_number = int(issue_number_str)
 
     auth = Auth.Token(token)
     gh = Github(auth=auth)
@@ -29,10 +41,9 @@ def main():
     issue_title = issue.title or ""
     issue_body = issue.body or ""
 
-    base_branch = "main"
     branch = f"issue-{issue_number}"
 
-    # 1) Создаём ветку через API (как раньше)
+    # 1) Create branch from base
     base = repo.get_branch(base_branch)
     try:
         repo.create_git_ref(ref=f"refs/heads/{branch}", sha=base.commit.sha)
@@ -40,74 +51,89 @@ def main():
     except Exception:
         print("Branch already exists (ok)")
 
-    # 2) Переключаемся локально на эту ветку и настраиваем push
+    # 2) Prepare git in runner
     sh("git config user.email 'actions@github.com'")
     sh("git config user.name 'github-actions[bot]'")
+
+    # Fetch + checkout branch locally
     sh(f"git fetch origin {branch}:{branch} || true")
     sh(f"git checkout {branch}")
 
-    # важный момент: настроим remote с токеном, чтобы push работал
+    # Set authenticated remote for push
     sh(f"git remote set-url origin https://x-access-token:{token}@github.com/{repo_name}.git")
 
-    # 3) Собираем задание для LLM (контекст + требования)
-    task = f"""
-У тебя есть задача из GitHub Issue.
+    # Clean python caches to avoid garbage commits
+    sh("find . -type d -name __pycache__ -prune -exec rm -rf {} + || true")
+    sh("find . -type f -name '*.pyc' -delete || true")
 
+    # 3) Build task prompt for agent
+    task = f"""
+У тебя есть задача из GitHub Issue. Нужно внести изменения в этом репозитории.
+
+Issue #{issue_number}
 Title: {issue_title}
 
 Body:
 {issue_body}
 
-Репозиторий уже выкачан локально. Выполни:
-1) Изучи структуру проекта (list files).
-2) Внеси изменения, которые решают задачу.
-3) Если есть линтер/тесты/сборка, запусти команды:
+Требования к работе:
+1) Сначала изучи структуру проекта (list files) и найди релевантные файлы.
+2) Перед изменением прочитай файлы.
+3) Меняй минимально необходимое количество файлов.
+4) НЕ трогай: node_modules, dist, build, .git
+5) После правок попробуй прогнать команды (если применимо для фронтенда):
    - npm ci
    - npm run lint (если есть)
    - npm test (если есть)
    - npm run build (если есть)
-4) Исправь проблемы, если команды упали.
-5) Не меняй node_modules/dist/build/.git.
-В конце напиши короткий отчёт что изменил.
+6) Если команды упали — постарайся исправить и прогнать снова.
+7) В конце напиши краткий отчёт: какие файлы изменены и почему.
+
+Важно: файл(ы) нужно реально изменить в рабочем дереве репозитория.
 """
 
-    # 4) Запускаем Agno-агента: он будет сам читать/писать файлы и гонять команды через tools
-    report = run_coding_agent(task)
-    print("=== AGENT REPORT ===")
-    print(report)
-    
-    # Если в отчёте явная ошибка — останавливаемся
-    bad_markers = ["Provider returned error", "rate-limited", "No models provided"]
-    if any(x.lower() in report.lower() for x in bad_markers):
-        raise RuntimeError(f"LLM failed: {report}")
+    # 4) Run LLM agent. If it fails -> abort without commit/PR
+    try:
+        report = run_coding_agent(task)
+    except Exception as e:
+        raise RuntimeError(f"LLM failed, aborting without PR/commit: {e}") from e
 
     print("=== AGENT REPORT ===")
     print(report)
 
-    # 5) Коммитим изменения (если есть)
-    sh("git status --porcelain")
-    changed = subprocess.check_output("git status --porcelain", shell=True, text=True).strip()
-    if not changed:
-        print("No changes detected; stopping.")
+    # Clean caches again (agent may have imported modules)
+    sh("find . -type d -name __pycache__ -prune -exec rm -rf {} + || true")
+    sh("find . -type f -name '*.pyc' -delete || true")
+
+    # 5) Check changes
+    status = subprocess.check_output("git status --porcelain", shell=True, text=True).strip()
+    print("$ git status --porcelain")
+    print(status)
+
+    if not status:
+        print("No changes detected. Not creating PR.")
         return
 
+    # 6) Commit + push
     sh("git add -A")
     sh(f"git commit -m 'Auto-fix issue #{issue_number}'")
-
-    # 6) Пушим ветку
     sh(f"git push -u origin {branch}")
 
-    # 7) Создаём PR (если ещё нет)
+    # 7) Create PR if not exists
+    pr_title = f"Auto-fix for issue #{issue_number}: {issue_title}".strip()
+    pr_body = "This PR was automatically generated by Code Agent.\n\n---\n\n" + report
+
     try:
         repo.create_pull(
-            title=f"Auto-fix for issue #{issue_number}: {issue_title}",
-            body="This PR was automatically generated by Code Agent.",
+            title=pr_title,
+            body=pr_body[:65000],  # safety limit for GitHub
             head=branch,
             base=base_branch,
         )
         print("Pull Request created")
     except Exception as e:
-        print("PR already exists or error:", e)
+        # If PR already exists, this will fail; that's OK
+        print(f"PR already exists or could not be created: {e}")
 
 
 if __name__ == "__main__":
