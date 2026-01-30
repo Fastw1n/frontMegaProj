@@ -357,11 +357,27 @@ def main() -> None:
     except Exception:
         pass
 
+    def find_node_project_dir() -> str | None:
+        """
+        Finds the first directory containing package.json.
+        Skips node_modules and .git.
+        """
+        for p in Path(".").rglob("package.json"):
+            if "node_modules" in p.parts or ".git" in p.parts:
+                continue
+            return str(p.parent)
+        return None
     # 6) Best-effort checks
-    try_sh("npm ci")
-    try_sh("npm run lint --if-present")
-    try_sh("npm test --if-present")
-    try_sh("npm run build --if-present")
+    node_dir = find_node_project_dir()
+
+    if node_dir:
+        print(f"Found Node project in: {node_dir}")
+        try_sh(f"cd {node_dir} && npm install")
+        try_sh(f"cd {node_dir} && npm run lint --if-present")
+        try_sh(f"cd {node_dir} && npm test --if-present")
+        try_sh(f"cd {node_dir} && npm run build --if-present")
+    else:
+        print("No package.json found. Skipping npm checks.")
 
     # Clean caches again
     sh("find . -type d -name __pycache__ -prune -exec rm -rf {} + || true")
