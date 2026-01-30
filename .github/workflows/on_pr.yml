@@ -3,25 +3,28 @@ name: On Pull Request
 permissions:
   contents: read
   pull-requests: write
+  checks: read
 
 on:
   pull_request:
-    types: [opened, synchronize]
+    types: [opened, synchronize, reopened]
 
 jobs:
-  review-agent:
+  reviewer-agent:
     runs-on: ubuntu-latest
 
     steps:
-      - name: Checkout repo
+      - name: Checkout repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Setup Python
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
 
-      - name: Install dependencies
+      - name: Install python deps
         run: |
           python -m pip install --upgrade pip
           pip install PyGithub
@@ -32,4 +35,4 @@ jobs:
           GITHUB_REPOSITORY: ${{ github.repository }}
           PR_NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          python agent/reviewer_agent.py
+          python -m agent.reviewer_agent
