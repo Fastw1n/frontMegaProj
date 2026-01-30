@@ -1,7 +1,10 @@
 # agent/agno_agent.py
-"""LLM coding agent wrapper (Agno)"""
+"""LLM coding agent wrapper (Agno + OpenRouter)"""
 
 import os
+import time
+from typing import Iterable
+
 from agno.agent import Agent
 from agno.models.openrouter import OpenRouter
 from agno.tools.file import FileTools
@@ -20,15 +23,18 @@ SYSTEM_PROMPT = """Ты - coding agent, помощник программист�
 4. При изменении файла пиши ПОЛНОЕ содержимое файла
 5. После правок запусти команды проверки (lint/test/build), если они есть
 6. Не трогай node_modules, dist, build, .git
-
-Дополнительные ограничения:
-- Меняй только минимально необходимые файлы
-- Не форматируй код целиком без необходимости
-- Если не уверен — сначала прочитай файл
-- Если задача неясна — выбери самый простой вариант
+7. Меняй минимально необходимое количество файлов
 
 Отвечай на русском языке.
 """
+
+
+ALLOWLIST_DEFAULT = [
+    "tngtech/deepseek-r1t2-chimera:free",
+    "qwen/qwen3-coder:free",
+    "openai/gpt-oss-120b:free",
+]
+
 
 def _make_agent(model_id: str, api_key: str) -> Agent:
     return Agent(
@@ -38,27 +44,64 @@ def _make_agent(model_id: str, api_key: str) -> Agent:
         markdown=True,
     )
 
+
+def _looks_like_transient_error(msg: str) -> bool:
+    """Ошибки, при которых имеет смысл попробовать другую модель/повторить."""
+    s = msg.lower()
+    markers = [
+        "rate limit",
+        "rate-limited",
+        "temporarily rate-limited",
+        "provider returned error",
+        "insufficient credits",
+        "no models provided",
+        "error code: 429",
+        "error code: 402",
+        "code': 429",
+        "code': 402",
+    ]
+    return any(m in s for m in markers)
+
+
+def _iter_models() -> Iterable[str]:
+    # Если MODEL задан — пробуем его первым (но только если не пустой)
+    env_model = (os.getenv("MODEL") or "").strip()
+    if env_model:
+        yield env_model
+
+    # Дальше allowlist (без дублей)
+    seen = {env_model} if env_model else set()
+    for m in ALLOWLIST_DEFAULT:
+        if m not in seen:
+            seen.add(m)
+            yield m
+
+
 def run_coding_agent(task: str) -> str:
     api_key = os.getenv("OPENROUTER_API_KEY")
     if not api_key:
         raise ValueError("OPENROUTER_API_KEY is not set")
 
-    primary = (os.getenv("MODEL") or "").strip() or "openai/gpt-4o-mini"
-    fallbacks = [
-        primary,
-        "openai/gpt-4o-mini",
-        "openai/gpt-4.1-mini",   # если доступно в OpenRouter
-    ]
+    last_err: Exception | None = None
+    last_msg: str | None = None
 
-    last_err = None
-    for m in fallbacks:
+    for model_id in _iter_models():
         try:
-            agent = _make_agent(model_id=m, api_key=api_key)
+            print(f"[LLM] Trying model: {model_id}")
+            agent = _make_agent(model_id=model_id, api_key=api_key)
             resp = agent.run(task)
             return resp.content
         except Exception as e:
             last_err = e
-            # если это не 429, можно сразу пробросить; но для простоты пробуем дальше
-            continue
+            last_msg = str(e)
+            print(f"[LLM] Model failed: {model_id} | error: {last_msg}")
 
-    raise RuntimeError(f"All models failed, last error: {last_err}")
+            # Если ошибка похожа на "временную/провайдерскую" — пробуем следующую модель
+            if _looks_like_transient_error(last_msg):
+                time.sleep(1.0)  # небольшой бэкофф
+                continue
+
+            # Если это что-то другое — лучше падать сразу (чтобы не скрывать баги)
+            raise
+
+    raise RuntimeError(f"All models failed. Last error: {last_msg or last_err}")
