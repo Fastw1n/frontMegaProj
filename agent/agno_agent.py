@@ -40,7 +40,8 @@ def make_agent(model_id: str, api_key: str) -> Agent:
 
 def run_coding_agent(task: str) -> str:
     api_key = os.getenv("OPENROUTER_API_KEY")
-    model_id = os.getenv("MODEL", "qwen/qwen3-coder:free")
+    model_id = (os.getenv("MODEL") or "").strip() or "qwen/qwen3-coder:free"
+
  # можешь поставить свой дефолт
 
     if not api_key:
