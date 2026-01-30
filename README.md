@@ -11,3 +11,7 @@ Optionally configure variables:
 
 This allows evaluators to test the pipeline with different LLM providers
 and model capacities without changing the codebase.
+
+### Example Issue
+Title: Change homepage heading
+Body: Change the main heading text to "Front Mega — курс по фронтенду". Only change text.
