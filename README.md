@@ -24,3 +24,21 @@ If `MODEL` is not set, the system falls back to a default stable model.
 **Body:**  
 Change the main heading text to **"Front Mega — курс по фронтенду"**.  
 Only change text, do not modify styles or layout.
+
+## Running with Docker
+
+The Code Agent can be run locally using Docker.
+
+### Requirements
+- Docker
+- Docker Compose
+
+### Run
+```bash
+export OPENROUTER_API_KEY=your_key
+export GITHUB_TOKEN=your_github_token
+export GITHUB_REPOSITORY=owner/repo
+export ISSUE_NUMBER=1
+
+docker-compose up --build
+
