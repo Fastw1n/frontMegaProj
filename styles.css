@@ -106,6 +106,12 @@ body {
 
 }
 
+.main-heading {
+    font-size: 180%;
+    color: white;
+    text-align: center;
+}
+
 .general-info-card p{
     text-align: start;
     color: gray;
