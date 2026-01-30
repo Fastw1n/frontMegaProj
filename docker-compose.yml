@@ -1,0 +1,19 @@
+version: "3.9"
+
+services:
+  code-agent:
+    build: .
+    container_name: code-agent
+    environment:
+      # BYOK
+      OPENROUTER_API_KEY: ${OPENROUTER_API_KEY}
+      MODEL: ${MODEL}
+
+      # GitHub context (если запускать вручную)
+      GITHUB_TOKEN: ${GITHUB_TOKEN}
+      GITHUB_REPOSITORY: ${GITHUB_REPOSITORY}
+      ISSUE_NUMBER: ${ISSUE_NUMBER}
+      BASE_BRANCH: main
+    volumes:
+      - .:/app
+    tty: true
