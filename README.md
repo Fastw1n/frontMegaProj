@@ -13,6 +13,8 @@ with different LLM providers and model capacities **without changing the codebas
 
 If `MODEL` is not set, the system falls back to a default stable model.
 
+Note: GitHub does not copy Secrets to forks. Evaluators should set `OPENROUTER_API_KEY` in the fork settings.
+
 ### How to run
 1. Configure the required secret (and optional variables).
 2. Create a GitHub Issue in the repository.
