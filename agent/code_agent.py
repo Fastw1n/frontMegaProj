@@ -75,6 +75,14 @@ Body:
     report = run_coding_agent(task)
     print("=== AGENT REPORT ===")
     print(report)
+    
+    # Если в отчёте явная ошибка — останавливаемся
+    bad_markers = ["Provider returned error", "rate-limited", "No models provided"]
+    if any(x.lower() in report.lower() for x in bad_markers):
+        raise RuntimeError(f"LLM failed: {report}")
+
+    print("=== AGENT REPORT ===")
+    print(report)
 
     # 5) Коммитим изменения (если есть)
     sh("git status --porcelain")
