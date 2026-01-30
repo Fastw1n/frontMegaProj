@@ -307,6 +307,7 @@ def main() -> None:
             raw = call_model_for_diff(model, issue_title, issue_body, context)
             last_raw = raw
             diff_text = extract_diff(raw)
+            diff_text = diff_text.replace("\r\n", "\n").strip() + "\n"
             used_model = model
             break
         except Exception as e:
