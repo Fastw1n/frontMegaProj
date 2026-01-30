@@ -33,4 +33,5 @@ jobs:
           OPENROUTER_API_KEY: ${{ secrets.OPENROUTER_API_KEY }}
           MODEL: ${{ vars.MODEL }}   # опционально, можно убрать
         run: |
-          python agent/code_agent.py
+          python -m agent.code_agent
+
