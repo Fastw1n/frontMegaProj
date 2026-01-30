@@ -69,7 +69,6 @@ def _iter_models() -> Iterable[str]:
     if env_model:
         yield env_model
 
-    # Дальше allowlist (без дублей)
     seen = {env_model} if env_model else set()
     for m in ALLOWLIST_DEFAULT:
         if m not in seen:
@@ -96,12 +95,10 @@ def run_coding_agent(task: str) -> str:
             last_msg = str(e)
             print(f"[LLM] Model failed: {model_id} | error: {last_msg}")
 
-            # Если ошибка похожа на "временную/провайдерскую" — пробуем следующую модель
             if _looks_like_transient_error(last_msg):
-                time.sleep(1.0)  # небольшой бэкофф
+                time.sleep(1.0) 
                 continue
 
-            # Если это что-то другое — лучше падать сразу (чтобы не скрывать баги)
             raise
 
     raise RuntimeError(f"All models failed. Last error: {last_msg or last_err}")

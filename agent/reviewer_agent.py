@@ -31,7 +31,7 @@ def get_checks_summary(repo, pr) -> Tuple[str, List[str]]:
     try:
         # Use combined status (works for many CI setups)
         combined = repo.get_commit(pr.head.sha).get_combined_status()
-        states = [s.state for s in combined.statuses]  # success/failure/pending/error
+        states = [s.state for s in combined.statuses] 
         details = [f"{s.context}: {s.state}" for s in combined.statuses]
         if any(s in ("failure", "error") for s in states):
             return "failure", details
@@ -45,7 +45,6 @@ def get_checks_summary(repo, pr) -> Tuple[str, List[str]]:
 
 
 def detect_issue_number_from_branch(branch_name: str) -> Optional[int]:
-    # your branches look like issue-19, issue-21, etc.
     if branch_name.startswith("issue-"):
         tail = branch_name.split("issue-", 1)[1]
         if tail.isdigit():
@@ -86,8 +85,8 @@ def main() -> None:
 
     # Basic “review policy” MVP:
     # - If checks failed -> request changes
-    # - If pending -> comment only (no approval yet)
-    # - If success -> approve (unless suspicious)
+    # - If pending -> comment only
+    # - If success -> approve
     suspicious = any(name.endswith(("package-lock.json", "pnpm-lock.yaml", "yarn.lock")) for name in file_names)
 
     if checks_overall == "failure":
@@ -107,7 +106,7 @@ def main() -> None:
         verdict = "comment"
         verdict_text = "ℹ️ Не удалось однозначно определить статус CI/checks."
 
-    # Compose PR comment
+
     issue_block = ""
     if issue_number and issue_title is not None:
         issue_block = f"\n**Linked Issue:** #{issue_number} — {issue_title}\n"
@@ -140,19 +139,15 @@ def main() -> None:
 - If CI is red, please fix and push updates — review will rerun automatically.
 """
 
-    # 1) Comment in PR conversation
     pr.create_issue_comment(comment_body)
 
-    # 2) Add GitHub Actions Job Summary
     write_step_summary(comment_body)
 
-    # 3) Create a formal review (approve / request_changes)
     if verdict == "approve":
         pr.create_review(event="APPROVE", body="✅ CI green. Auto-approval by Reviewer Agent.")
     elif verdict == "request_changes":
         pr.create_review(event="REQUEST_CHANGES", body="❌ CI failed. Please fix and push updates.")
     else:
-        # "comment" (neutral review)
         pr.create_review(event="COMMENT", body="⏳ Neutral automated review. Waiting for CI or more signal.")
 
     print("Reviewer Agent: review posted.")
