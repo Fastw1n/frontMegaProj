@@ -223,12 +223,11 @@ Body:
 {issue_body}
 
 Rules:
-- Output ONLY a unified git diff in a fenced block: ```diff ... ```
-- Make minimal changes.
-- Do not touch node_modules, dist, build, .git.
-- If unsure, change the most obvious frontend entrypoint (App / main page).
-- Keep existing style; avoid large reformatting.
-- Do NOT include explanations outside the diff block.
+- Output ONLY a valid git-style unified diff produced by `git diff`
+- The diff MUST start with: diff --git a/... b/...
+- Include --- a/... and +++ b/... lines and @@ hunks
+- Do not include any commentary outside the ```diff``` block
+
 
 {context}
 """.strip()
